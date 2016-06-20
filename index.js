@@ -56,7 +56,14 @@ var Frame = React.createClass({
       return;
     }
 
-    var doc = ReactDOM.findDOMNode(this).contentDocument;
+    try {
+      var doc = ReactDOM.findDOMNode(this).contentDocument;
+    } catch (ignoreErr){
+      // if access to contentDocument disallowed that mean than iframe was redirected
+      // so restore initial state
+      this.reset();
+    }
+
     if(doc && doc.readyState === 'complete') {
       var contents = React.createElement('div',
         undefined,
@@ -78,11 +85,17 @@ var Frame = React.createClass({
       // the parent, which exposes context to any child components.
       var callback = initialRender ? this.props.contentDidMount : this.props.contentDidUpdate;
       var mountTarget;
-      
+
       if(this.props.mountTarget) {
         mountTarget = doc.querySelector(this.props.mountTarget);
       } else {
         mountTarget = doc.body.children[0];
+      }
+
+      if (!mountTarget) {
+        this.reset();
+        setTimeout(this.renderFrameContents);
+        return;
       }
 
       ReactDOM.unstable_renderSubtreeIntoContainer(this, contents, mountTarget, callback);
@@ -91,6 +104,10 @@ var Frame = React.createClass({
     } else {
       setTimeout(this.renderFrameContents, 0);
     }
+  },
+  reset: function() {
+    ReactDOM.findDOMNode(this).src = '';
+    this._setInitialContent = false;
   },
   componentDidUpdate: function() {
     this.renderFrameContents();
